@@ -459,34 +459,17 @@ module Origami
     def signature_page(options={})
 
       # Define the attributes of a box where we will put our annotation + mox logo + description
-      box = { x: 175, y:490, width: 500, height: 125 }
+      box = { x: 175, y:490, width: 300, height: 150 }
 
       # Create a new page and contentsream to hold the text/image content to be put the page
       page     = Origami::Page.new
       contents = Origami::ContentStream.new
 
-      # Load stamp and add reference to the page
-      stamp_options = {
-        x: box[:x] + 10,
-        y: box[:y] + 10,
-        width: 100,
-        height: 100
-      }
-      stamp = Origami::Graphics::ImageXObject.from_image_file("#{File.dirname(__FILE__)}/../../data/stamp.jpg")
-      stamp.Width  = stamp_options[:width]
-      stamp.Height = stamp_options[:height]
-      stamp.ColorSpace = Origami::Graphics::Color::Space::DEVICE_RGB
-      stamp.BitsPerComponent = 8
-      stamp.Interpolate = true
-      page.add_xobject(:stamp, stamp)
-
-      # Draw the image inside the box area
-      contents.draw_image(:stamp, stamp_options)
 
       # Write the description text inside the box area
-      contents.write("Signed by: #{options[:name]}\nEmail: #{options[:contact]}", {
-        :x => box[:x] + stamp_options[:width] + 30,
-        :y => box[:y] + 50,
+      contents.write("Signed by: #{options[:name]}\nEmail: #{options[:contact]}\nLocation:#{options[:location]}\nReason: #{options[:reason]}", {
+        :x => box[:x] - box[:width] / 2 + 20,
+        :y => box[:y] + box[:height] / 2 - 20,
         :rendering => Origami::Text::Rendering::FILL,
         :size => 20,
         :leading => 30
@@ -498,10 +481,10 @@ module Origami
       # Create the signature annotaion over the content area box
       annotation = Origami::Annotation::Widget::Signature.new
       annotation.Rect = Origami::Rectangle[
-        :llx => box[:x],
-        :lly => box[:y],
-        :urx => box[:x] + box[:width],
-        :ury => box[:y] + box[:height]
+        :llx => box[:x] - box[:width] / 2,
+        :lly => box[:y] - box[:height] / 2,
+        :urx => box[:x] + box[:width] / 2,
+        :ury => box[:y] + box[:height] / 2
       ]
 
       # Add the signature annotation to the page
@@ -545,6 +528,7 @@ module Origami
         :contact => nil,
         :reason => nil,
         :signature_size => 1111,
+        :date => Time.now,
         :name => 'Mobile Express'
       }.update(options)
 
@@ -564,9 +548,10 @@ module Origami
 
 
       #calcualte the signfiled size to insert inside the ByteRange
-      signfield_size = params[:signature_size] + 128
-
-
+      signfield_size = params[:signature_size]
+      date = params[:date]
+      timezone = date.strftime('%z').insert(3, "'").insert(6, "'")
+      date_str = date.strftime("D:%Y%m%d%H%M%S#{timezone}")
 
       digsig = Signature::DigitalSignature.new.set_indirect(true)
 
@@ -587,16 +572,16 @@ module Origami
 
       digsig.Type = :Sig #:nodoc:
       digsig.Contents = HexaString.new("\x00" * signfield_size ) #:nodoc:
-      digsig.Filter = Name.new("Adobe.PPKMS") #:nodoc:
+      digsig.Filter = Name.new("Adobe.PPKLite") #:nodoc:
       digsig.SubFilter = Name.new(params[:method]) #:nodoc:
       digsig.ByteRange = [0, 0, 0, 0] #:nodoc:
 
       digsig.Location = HexaString.new(params[:location]) if params[:location]
       digsig.ContactInfo = HexaString.new(params[:contact]) if params[:contact]
       digsig.Reason = HexaString.new(params[:reason]) if params[:reason]
-
-
-
+      digsig.Name = HexaString.new(params[:name]) if params[:name]
+      digsig.Date = HexaString.new(date_str)
+      digsig.Certs = ca if params[:ca]
       #
       #  Flattening the PDF to get file view.
       #
@@ -625,16 +610,9 @@ module Origami
 
       filedata = output()
 
-
-
       signable_data = filedata[digsig.ByteRange[0],digsig.ByteRange[1]] + filedata[digsig.ByteRange[2],digsig.ByteRange[3]]
 
-
-
-      return Base64.encode64(Digest::SHA1.digest(signable_data))
-
-
-
+      return Digest::SHA256.hexdigest(signable_data)
 
     end
 
@@ -714,6 +692,8 @@ module Origami
       field   :Reference,       :Type => Array, :Version => "1.5"
       field   :Changes,         :Type => Array
       field   :Name,            :Type => String
+      field   :Date,            :Type => String
+      field   :Date,            :Type => String
       field   :M,               :Type => String
       field   :Location,        :Type => String
       field   :Reason,          :Type => String
