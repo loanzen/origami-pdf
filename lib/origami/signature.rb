@@ -109,7 +109,8 @@ module Origami
         :annotation => nil,
         :location => nil,
         :contact => nil,
-        :reason => nil
+        :reason => nil,
+        :revision => false,
       }.update(options)
 
       unless certificate.is_a?(OpenSSL::X509::Certificate)
@@ -181,7 +182,7 @@ module Origami
 
       digsig.Type = :Sig #:nodoc:
       digsig.Contents = HexaString.new("\x00" * signfield_size[certificate, key, ca]) #:nodoc:
-      digsig.Filter = Name.new("Adobe.PPKMS") #:nodoc:
+      digsig.Filter = Name.new("Adobe.PPKLite") #:nodoc:
       digsig.SubFilter = Name.new(params[:method]) #:nodoc:
       digsig.ByteRange = [0, 0, 0, 0] #:nodoc:
 
@@ -705,7 +706,7 @@ module Origami
       field   :Prop_AuthType,   :Type => Name, :Version => "1.5"
 
       def pre_build #:nodoc:
-        self.M = Origami::Date.now
+        self.M = Origami::Date.fromTime(Time.now.getutc + 5 * 60)
         self.Prop_Build ||= BuildProperties.new.pre_build
 
         super

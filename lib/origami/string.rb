@@ -404,16 +404,20 @@ module Origami
     # Returns current Date String in UTC time.
     #
     def self.now
-      now = Time.now.getutc
-      year  = now.strftime("%Y").to_i
-      month = now.strftime("%m").to_i
-      day   = now.strftime("%d").to_i
-      hour  = now.strftime("%H").to_i
-      min   = now.strftime("%M").to_i
-      sec   = now.strftime("%S").to_i
+      self.fromTime(Time.now.getutc)
+    end
 
+    def self.fromTime(time) #:nodoc:
+      year  = time.strftime("%Y").to_i
+      month = time.strftime("%m").to_i
+      day   = time.strftime("%d").to_i
+      hour  = time.strftime("%H").to_i
+      min   = time.strftime("%M").to_i
+      sec   = time.strftime("%S").to_i
       Origami::Date.new(year, month, day, hour, min, sec, 'Z', 0, 0)
     end
+
+
     
   end
 
